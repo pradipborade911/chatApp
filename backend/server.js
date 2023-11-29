@@ -5,57 +5,82 @@ const WebSocket = require('ws');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+let count = 0;
 
-// List to store available clients
-const availableClients = [];
+const availableClients = new Set();
 
-wss.on('connection', (ws) => {
-  // Check if the client is already in the list
-  if (availableClients.includes(ws)) {
-    console.log('Existing client reconnected');
-    return;
-  }
+const pair = (connection) => {
+  console.log(availableClients.size)
+  const clients = availableClients.values();
+  const pairedClient = clients.next().value;
 
-  console.log('New client connected');
+  availableClients.delete(pairedClient);
 
-  if (availableClients.length >= 1) {
-    console.log('Entry', availableClients.length);
-    const index = Math.floor(Math.random() * availableClients.length);
-    const pairedClient = availableClients[index];
+  pairedClient.isPaired = true;
+  connection.isPaired = true;
 
-    // Remove client from the available list
-    availableClients.splice(index, 1);
+  connection.send('!@#$%^&*()' + connection.clientId);
+  pairedClient.send('!@#$%^&*()' + pairedClient.clientId);
 
-    // Notify clients that they are paired
-    ws.send('newbie!!! You are now connected!');
-    pairedClient.send('Waiter!!! You are now connected !');
-    console.log("exit",availableClients.length);
+  return pairedClient;
+}
 
-    // WebSocket event handling for paired clients
-    ws.on('message', (message) => {
-      console.log("newbie sending msg")
-      pairedClient.send(message.toString('utf-8'));
+wss.on('connection', (incomingConnection) => {
+  let client = incomingConnection;
+  client.clientId = ++count;
+  client.isPaired = false;
+
+  if (availableClients.size >= 1) {
+    let anotherClient = pair(client);
+
+    client.on('message', (message) => {
+      anotherClient.send(message.toString('utf-8'));
     });
 
-    pairedClient.on('message', (message) => {
-      console.log("waiter sending msg")
-      ws.send(message.toString('utf-8'));
+    anotherClient.on('message', (message) => {
+      client.send(message.toString('utf-8'));
     });
-    } else {
-    availableClients.push(ws);
-    ws.send('Waiting for a partner...');
-  }
 
-  ws.on('close', () => {
-    // Remove the client from the available list if they disconnect
-    const index = availableClients.indexOf(ws);
-    if (index !== -1) {
-      availableClients.splice(index, 1);
+    anotherClient.onclose = (event) => {
+      let temp = anotherClient;
+      if (anotherClient.isPaired) {
+        client.send(")(*&^%$#@!");
+
+        if (availableClients.size >= 1) {
+          anotherClient = pair(client);
+        } else {
+          client.isPaired = false;
+          availableClients.add(client);
+        }
+      }
+      availableClients.delete(temp);
     }
+
+    client.onclose = (event) => {
+      let temp = client;
+      if (client.isPaired) {
+        anotherClient.send(")(*&^%$#@!");
+
+        if (availableClients.size >= 1) {
+          client = pair(anotherClient);
+        } else {
+          anotherClient.isPaired = false;
+          availableClients.add(anotherClient);
+        }
+      }
+      availableClients.delete(temp);
+    }
+
+  } else {
+    availableClients.add(client);
+    client.send('~!@#$%^&*(()_+');
+  }
+
+  client.on('close', () => {
+    availableClients.delete(client);
   });
 });
 
-// Start the server
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
