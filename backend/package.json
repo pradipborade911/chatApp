@@ -4,6 +4,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start-backend": "node server.js",
     "start:debug": "node --inspect server.js"
   },
   "dependencies": {

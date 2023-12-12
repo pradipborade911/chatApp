@@ -11,7 +11,7 @@ const ChatApp = () => {
   console.log(isConnected)
   let socket = null;
   if (!isConnected) {
-    socket = new WebSocket('ws://localhost:3001');  // Update with your server URL
+    socket = new WebSocket('ws://192.168.60.30:3001');  // Update with your server URL
     SetConnected(true);
     Setconnection(socket);
   } else {
